@@ -1,69 +1,83 @@
-# React + TypeScript + Vite
+# bg-remover
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+AI-powered background removal in your browser. No uploads, no servers, no tracking.
 
-Currently, two official plugins are available:
+## Links
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **[Live Demo](https://bg.shahriarahmed.me)** - Try the app now
+- **[Case Study](https://www.shahriarahmed.me/case-study/bg-remover)** - Deep dive into the technical implementation
 
-## Expanding the ESLint configuration
+## Features
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- **Privacy-first** - All processing happens in your browser, images never uploaded
+- **AI-powered** - Uses RMBG-1.4, a cutting-edge model for precise background removal
+- **Smooth performance** - Web Workers keep the interface responsive during processing
+- **Terminal-inspired UI** - Clean, minimal dark interface for focused work
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
+## Quick Start
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### Prerequisites
+
+Node.js 18+, pnpm recommended
+
+### Install & Run
+
+```bash
+git clone https://github.com/shahriarAS/bg-remover.git
+cd bg-remover
+pnpm install
+pnpm dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Build
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+pnpm build
 ```
+
+## Stack
+
+## Stack
+
+- React 19 + TypeScript
+- Vite build system
+- Tailwind CSS
+- Hugging Face Transformers.js
+- RMBG-1.4 model
+
+## Architecture
+
+1. Model loads and caches in browser on first use
+2. Web Workers handle AI inference without blocking UI
+3. RMBG-1.4 generates precise subject masks
+4. Canvas API applies masks for transparent PNGs
+
+```
+src/
+├── components/     # React UI components
+├── lib/           # Utilities and helpers
+├── worker.ts      # Web Worker for AI processing
+└── App.tsx        # Main application
+```
+
+## Contributing
+
+PRs welcome. For major changes, open an issue first.
+
+```bash
+pnpm install && pnpm dev
+```
+
+## License
+
+MIT
+
+## Credits
+
+- [RMBG-1.4](https://huggingface.co/briaai/RMBG-1.4) by BRIA AI
+- [Transformers.js](https://github.com/xenova/transformers.js) for browser AI
+
+---
+
+[shahriarahmed.me](https://www.shahriarahmed.me)
