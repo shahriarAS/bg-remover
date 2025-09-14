@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import { Analytics } from "@vercel/analytics/next";
+import { Analytics } from '@vercel/analytics/react';
 
 // Components
 import Header from "./components/Header";
