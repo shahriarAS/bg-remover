@@ -24,11 +24,15 @@ const App: React.FC = () => {
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [processedImages, setProcessedImages] = useState<ProcessedImage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isModelLoading, setIsModelLoading] = useState(false);
+  const [isModelLoading, setIsModelLoading] = useState(true); // Start with true since we'll load on app start
+  const [isModelReady, setIsModelReady] = useState(false);
   const [fileName, setFileName] = useState<string>("");
   const [fileSize, setFileSize] = useState<number>(0);
   const [processingProgress, setProcessingProgress] = useState(0);
+  const [modelLoadingProgress, setModelLoadingProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState<string>("");
+  const [modelLoadingMessage, setModelLoadingMessage] =
+    useState<string>("Initializing...");
   const [startTime, setStartTime] = useState<number | null>(null);
   const worker = useRef<Worker | null>(null);
   const [processedCount, setProcessedCount] = useState(
@@ -37,20 +41,23 @@ const App: React.FC = () => {
 
   // Start the image processing workflow
   const processImage = useCallback(async () => {
+    if (!isModelReady) {
+      console.log("Model not ready yet, waiting...");
+      return;
+    }
+
     setIsProcessing(true);
     setProcessingProgress(0);
     setProgressMessage("");
     setStartTime(Date.now());
 
-    // Initialize worker if needed and set loading state
-    if (!worker.current) {
-      setIsModelLoading(true);
-    }
-
     worker?.current?.postMessage({
-      type: "initialize",
+      type: "processImage",
+      data: {
+        image: selectedImageFile,
+      },
     });
-  }, []);
+  }, [isModelReady, selectedImageFile]);
 
   // Convert processed image data to blob URL
   const createImageFromProcessedData = useCallback(
@@ -107,7 +114,6 @@ const App: React.FC = () => {
 
       setProcessedImages((prev) => [processedImage, ...prev]);
       setIsProcessing(false);
-      setIsModelLoading(false);
       setProcessingProgress(0);
       setProgressMessage("");
       setProcessedCount((count) => {
@@ -127,10 +133,16 @@ const App: React.FC = () => {
         setFileName(file.name);
         setFileSize(file.size);
         setSelectedImageFile(file);
-        processImage();
+
+        // Only process the image if the model is ready
+        if (isModelReady) {
+          processImage();
+        }
+        // If model is not ready, processImage will be called automatically
+        // when the model becomes ready (handled in useEffect)
       }
     },
-    [processImage]
+    [processImage, isModelReady]
   );
 
   const handleDrag = useCallback((e: React.DragEvent) => {
@@ -193,27 +205,34 @@ const App: React.FC = () => {
       switch (e.data.status) {
         case "progress":
           if (typeof e.data.progress === "number") {
-            setProcessingProgress(e.data.progress);
-            if (e.data.message) {
-              setProgressMessage(e.data.message);
+            if (isModelReady) {
+              // Image processing progress
+              setProcessingProgress(e.data.progress);
+              if (e.data.message) {
+                setProgressMessage(e.data.message);
+              }
+            } else {
+              // Model loading progress
+              setModelLoadingProgress(e.data.progress);
+              if (e.data.message) {
+                setModelLoadingMessage(e.data.message);
+              }
             }
           }
           break;
 
         case "ready":
           setIsModelLoading(false);
-          setProcessingProgress(0);
-          setProgressMessage("Model ready! Starting image processing...");
+          setIsModelReady(true);
+          setModelLoadingProgress(100);
+          setModelLoadingMessage("Model ready!");
 
-          // Small delay to show the "ready" message before starting processing
-          setTimeout(() => {
-            worker?.current?.postMessage({
-              type: "processImage",
-              data: {
-                image: selectedImageFile,
-              },
-            });
-          }, 500);
+          // If there's a pending image to process, start processing it
+          // if (selectedImageFile) {
+          //   setTimeout(() => {
+          //     processImage();
+          //   }, 100);
+          // }
           break;
 
         case "complete":
@@ -226,7 +245,6 @@ const App: React.FC = () => {
           } catch (error) {
             console.error("Failed to process image data:", error);
             setIsProcessing(false);
-            setIsModelLoading(false);
             setProcessingProgress(0);
             setProgressMessage("Error processing image");
           }
@@ -234,19 +252,34 @@ const App: React.FC = () => {
 
         case "error":
           console.error("Worker error:", e.data.message);
-          setIsProcessing(false);
-          setIsModelLoading(false);
-          setProcessingProgress(0);
-          setProgressMessage("Error: " + e.data.message);
+          if (isModelReady) {
+            setIsProcessing(false);
+            setProcessingProgress(0);
+            setProgressMessage("Error: " + e.data.message);
+          } else {
+            setIsModelLoading(false);
+            setModelLoadingMessage("Error loading model: " + e.data.message);
+          }
           break;
       }
     };
 
     worker.current.addEventListener("message", onMessageReceived);
 
+    // Initialize the model immediately when the app starts
+    worker.current.postMessage({
+      type: "initialize",
+    });
+
     return () =>
       worker.current?.removeEventListener("message", onMessageReceived);
-  }, [selectedImageFile, createImageFromProcessedData, processImageComplete]);
+  }, [
+    selectedImageFile,
+    createImageFromProcessedData,
+    processImageComplete,
+    processImage,
+    isModelReady,
+  ]);
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 font-mono">
@@ -254,16 +287,46 @@ const App: React.FC = () => {
       <StatusBar
         isProcessing={isProcessing}
         isModelLoading={isModelLoading}
+        isModelReady={isModelReady}
         processedCount={processedCount}
+        modelLoadingProgress={modelLoadingProgress}
+        modelLoadingMessage={modelLoadingMessage}
       />
       <main className="px-6 py-8">
         <div className="max-w-6xl mx-auto">
           {!selectedImage && <Intro />}
+
+          {/* Model Loading Progress */}
+          {isModelLoading && (
+            <div className="mb-8 bg-gray-900/50 border border-gray-800 rounded-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-200">
+                  Initializing AI Model
+                </h3>
+                <span className="text-sm text-gray-400">
+                  {modelLoadingProgress}%
+                </span>
+              </div>
+              <div className="w-full bg-gray-800 rounded-full h-2 mb-3">
+                <div
+                  className="bg-blue-500 h-2 rounded-full transition-all duration-300 ease-out"
+                  style={{ width: `${modelLoadingProgress}%` }}
+                ></div>
+              </div>
+              <p className="text-sm text-gray-400">{modelLoadingMessage}</p>
+              <p className="text-xs text-gray-500 mt-2">
+                Just once — downloading the model now. Next time it{"'"}ll be
+                instant.
+              </p>
+            </div>
+          )}
+
           <UploadArea
             dragActive={dragActive}
             handleDrag={handleDrag}
             handleDrop={handleDrop}
             handleFileSelect={handleFileSelect}
+            isModelReady={isModelReady}
           />
           <ProcessingStatus
             isProcessing={isProcessing}
