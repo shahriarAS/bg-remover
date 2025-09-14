@@ -5,26 +5,30 @@ interface UploadAreaProps {
   handleDrag: (e: React.DragEvent) => void;
   handleDrop: (e: React.DragEvent) => void;
   handleFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  isProcessing: boolean;
 }
 
-const UploadArea: React.FC<UploadAreaProps> = ({ dragActive, handleDrag, handleDrop, handleFileSelect }) => (
+const UploadArea: React.FC<UploadAreaProps> = ({ dragActive, handleDrag, handleDrop, handleFileSelect, isProcessing }) => (
   <div className="mb-8">
     <div
       className={`relative border-2 border-dashed rounded-lg transition-all duration-200 ${
-        dragActive
+        isProcessing
+          ? "border-gray-800 bg-gray-900/50 opacity-50 cursor-not-allowed"
+          : dragActive
           ? "border-green-400 bg-green-400/5"
           : "border-gray-700 hover:border-gray-600 bg-gray-900/30"
       }`}
-      onDragEnter={handleDrag}
-      onDragLeave={handleDrag}
-      onDragOver={handleDrag}
-      onDrop={handleDrop}
+      onDragEnter={isProcessing ? undefined : handleDrag}
+      onDragLeave={isProcessing ? undefined : handleDrag}
+      onDragOver={isProcessing ? undefined : handleDrag}
+      onDrop={isProcessing ? undefined : handleDrop}
     >
       <input
         type="file"
         accept="image/*"
         onChange={handleFileSelect}
-        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+        disabled={isProcessing}
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
       />
       <div className="p-12 text-center">
         <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-800 rounded-lg mb-6">

@@ -264,6 +264,7 @@ const App: React.FC = () => {
             handleDrag={handleDrag}
             handleDrop={handleDrop}
             handleFileSelect={handleFileSelect}
+            isProcessing={isProcessing}
           />
           <ProcessingStatus
             isProcessing={isProcessing}
