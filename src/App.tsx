@@ -7,8 +7,8 @@ import Intro from "./components/Intro";
 import UploadArea from "./components/UploadArea";
 import ProcessingStatus from "./components/ProcessingStatus";
 import Results from "./components/Results";
-import ApiInfo from "./components/ApiInfo";
 import Footer from "./components/Footer";
+import DevCredit from "./components/DevCredit";
 
 export interface ProcessedImage {
   original: string;
@@ -50,54 +50,66 @@ const App: React.FC = () => {
   }, []);
 
   // Convert processed image data to blob URL
-  const createImageFromProcessedData = useCallback(async (imageData: ImageData, maskData: Uint8Array | Uint8ClampedArray): Promise<string> => {
-    const canvas = document.createElement("canvas");
-    canvas.width = imageData.width;
-    canvas.height = imageData.height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Could not get 2d context");
+  const createImageFromProcessedData = useCallback(
+    async (
+      imageData: ImageData,
+      maskData: Uint8Array | Uint8ClampedArray
+    ): Promise<string> => {
+      const canvas = document.createElement("canvas");
+      canvas.width = imageData.width;
+      canvas.height = imageData.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Could not get 2d context");
 
-    // Put the original image data on canvas
-    ctx.putImageData(imageData, 0, 0);
+      // Put the original image data on canvas
+      ctx.putImageData(imageData, 0, 0);
 
-    // Update alpha channel with mask data
-    const pixelData = ctx.getImageData(0, 0, imageData.width, imageData.height);
-    for (let i = 0; i < maskData.length; ++i) {
-      pixelData.data[4 * i + 3] = maskData[i];
-    }
-    ctx.putImageData(pixelData, 0, 0);
+      // Update alpha channel with mask data
+      const pixelData = ctx.getImageData(
+        0,
+        0,
+        imageData.width,
+        imageData.height
+      );
+      for (let i = 0; i < maskData.length; ++i) {
+        pixelData.data[4 * i + 3] = maskData[i];
+      }
+      ctx.putImageData(pixelData, 0, 0);
 
-    // Convert canvas to blob
-    const blob = await new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob(
-        (blob) =>
-          blob
-            ? resolve(blob)
-            : reject(new Error("Failed to create blob")),
-        "image/png"
-      )
-    );
+      // Convert canvas to blob
+      const blob = await new Promise<Blob>((resolve, reject) =>
+        canvas.toBlob(
+          (blob) =>
+            blob ? resolve(blob) : reject(new Error("Failed to create blob")),
+          "image/png"
+        )
+      );
 
-    return URL.createObjectURL(blob);
-  }, []);
+      return URL.createObjectURL(blob);
+    },
+    []
+  );
 
-  const processImageComplete = useCallback(async (outputImage: string) => {
-    const processingTime = Date.now() - startTime!;
+  const processImageComplete = useCallback(
+    async (outputImage: string) => {
+      const processingTime = Date.now() - startTime!;
 
-    const processedImage: ProcessedImage = {
-      original: selectedImage!,
-      processed: outputImage,
-      name: fileName,
-      size: fileSize,
-      processingTime: processingTime,
-    };
+      const processedImage: ProcessedImage = {
+        original: selectedImage!,
+        processed: outputImage,
+        name: fileName,
+        size: fileSize,
+        processingTime: processingTime,
+      };
 
-    setProcessedImages((prev) => [processedImage, ...prev]);
-    setIsProcessing(false);
-    setIsModelLoading(false);
-    setProcessingProgress(0);
-    setProgressMessage("");
-  }, [selectedImage, fileName, fileSize, startTime]);
+      setProcessedImages((prev) => [processedImage, ...prev]);
+      setIsProcessing(false);
+      setIsModelLoading(false);
+      setProcessingProgress(0);
+      setProgressMessage("");
+    },
+    [selectedImage, fileName, fileSize, startTime]
+  );
 
   const handleImageUpload = useCallback(
     (file: File) => {
@@ -184,7 +196,7 @@ const App: React.FC = () => {
           setIsModelLoading(false);
           setProcessingProgress(0);
           setProgressMessage("Model ready! Starting image processing...");
-          
+
           // Small delay to show the "ready" message before starting processing
           setTimeout(() => {
             worker?.current?.postMessage({
@@ -198,7 +210,10 @@ const App: React.FC = () => {
 
         case "complete":
           try {
-            const imageUrl = await createImageFromProcessedData(e.data.imageData, e.data.maskData);
+            const imageUrl = await createImageFromProcessedData(
+              e.data.imageData,
+              e.data.maskData
+            );
             processImageComplete(imageUrl);
           } catch (error) {
             console.error("Failed to process image data:", error);
@@ -253,7 +268,7 @@ const App: React.FC = () => {
             formatFileSize={formatFileSize}
             downloadImage={downloadImage}
           />
-          {!selectedImage && <ApiInfo />}
+          <DevCredit />
         </div>
       </main>
       <Footer />

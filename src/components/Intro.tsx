@@ -9,7 +9,9 @@ const Intro: React.FC = () => (
       </div>
       <div className="space-y-2 text-sm">
         <p className="text-gray-300">AI-powered background removal service</p>
-        <p className="text-gray-500">Upload an image and get transparent PNG output</p>
+        <p className="text-gray-500">
+          Upload an image and get transparent PNG output
+        </p>
         <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
           <div>
             <span className="text-green-400">Supported:</span>
