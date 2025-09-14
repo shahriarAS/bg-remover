@@ -4,7 +4,7 @@ const DevCredit: React.FC = () => (
   <div className="mt-16 bg-gray-900 rounded-lg border border-gray-800 p-6">
     <div className="flex items-center space-x-2 mb-4">
       <span className="text-green-400">$</span>
-      <span className="text-gray-300">whoami && pwd</span>
+      <span className="text-gray-300">whoami</span>
     </div>
     <div className="text-sm text-gray-500 space-y-4">
       <div className="space-y-2">
@@ -31,12 +31,12 @@ const DevCredit: React.FC = () => (
         </div>
       </div>
 
-      <div className="flex flex-wrap justify-between gap-4 mt-6 pt-4 border-t border-gray-800">
+      <div className="flex flex-col lg:flex-row lg:justify-between gap-4 mt-6 pt-4 border-t border-gray-800">
         <a
           href="https://shahriarahmed.me"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-green-400 hover:text-green-300 text-xs"
+          className="text-green-400 hover:text-green-300 text-xs block"
         >
           shahriarahmed.me
         </a>
@@ -44,7 +44,7 @@ const DevCredit: React.FC = () => (
           href="https://github.com/shahriarAS"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-green-400 hover:text-green-300 text-xs"
+          className="text-green-400 hover:text-green-300 text-xs block"
         >
           github.com/shahriarAS
         </a>
@@ -52,7 +52,7 @@ const DevCredit: React.FC = () => (
           href="https://www.linkedin.com/in/shahriar-ahmed-shovon/"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-green-400 hover:text-green-300 text-xs"
+          className="text-green-400 hover:text-green-300 text-xs block"
         >
           linkedin.com/in/shahriar-ahmed-shovon
         </a>

@@ -31,6 +31,9 @@ const App: React.FC = () => {
   const [progressMessage, setProgressMessage] = useState<string>("");
   const [startTime, setStartTime] = useState<number | null>(null);
   const worker = useRef<Worker | null>(null);
+  const [processedCount, setProcessedCount] = useState(
+    Number(localStorage.getItem("processedCount")) || 0
+  );
 
   // Start the image processing workflow
   const processImage = useCallback(async () => {
@@ -107,6 +110,11 @@ const App: React.FC = () => {
       setIsModelLoading(false);
       setProcessingProgress(0);
       setProgressMessage("");
+      setProcessedCount((count) => {
+        const newCount = count + 1;
+        localStorage.setItem("processedCount", newCount.toString());
+        return newCount;
+      });
     },
     [selectedImage, fileName, fileSize, startTime]
   );
@@ -245,8 +253,8 @@ const App: React.FC = () => {
       <Header />
       <StatusBar
         isProcessing={isProcessing}
-        processedImages={processedImages}
         isModelLoading={isModelLoading}
+        processedCount={processedCount}
       />
       <main className="px-6 py-8">
         <div className="max-w-6xl mx-auto">

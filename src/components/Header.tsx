@@ -23,8 +23,7 @@ const Header: React.FC = () => (
             </div>
           </div>
         </div>
-        <div className="flex items-center space-x-6 text-sm">
-          {/* <span className="text-gray-400 hover:text-green-400 cursor-pointer transition-colors">docs</span> */}
+        <div className="hidden lg:flex items-center space-x-6 text-sm">
           <a
             target="_blank"
             href="https://www.shahriarahmed.me/case-study/bg-remover"
