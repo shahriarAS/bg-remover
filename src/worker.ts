@@ -41,7 +41,7 @@ export async function initializeModel(): Promise<void> {
                     self.postMessage({
                         status: 'progress',
                         progress: modelProgress,
-                        message: `Loading model: ${modelProgress}%`
+                        message: `Loading model: ${modelProgress}% — Just once — downloading the model now. Next time it’ll be instant.`
                     });
                 }
             }
