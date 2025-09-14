@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
+import { Analytics } from "@vercel/analytics/next";
 
 // Components
 import Header from "./components/Header";
@@ -281,6 +282,7 @@ const App: React.FC = () => {
         </div>
       </main>
       <Footer />
+      <Analytics />
     </div>
   );
 };

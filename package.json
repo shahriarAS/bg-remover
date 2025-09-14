@@ -12,6 +12,7 @@
   "dependencies": {
     "@huggingface/transformers": "^3.7.3",
     "@tailwindcss/vite": "^4.1.13",
+    "@vercel/analytics": "^1.5.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "tailwindcss": "^4.1.13"
