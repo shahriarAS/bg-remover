@@ -12,9 +12,9 @@ const StatusBar: React.FC<StatusBarProps> = ({
   processedCount,
 }) => {
   return (
-    <div className="bg-gray-900 border-b border-gray-800 px-6 py-2">
-      <div className="max-w-7xl mx-auto flex items-center justify-between text-xs">
-        <div className="flex items-center space-x-4">
+    <div className="bg-gray-900 border-b border-gray-800 px-3 sm:px-6 py-2">
+      <div className="max-w-7xl mx-auto px-6 flex flex-wrap justify-between gap-2 sm:gap-0 text-xs">
+        <div className="flex items-center space-x-2 sm:space-x-4">
           <span className="text-green-400">●</span>
           <span className="text-gray-400">Ready</span>
           {isModelLoading && (
@@ -30,10 +30,11 @@ const StatusBar: React.FC<StatusBarProps> = ({
             </>
           )}
         </div>
-        <div className="flex items-center space-x-4 text-gray-500">
-          <span>Images processed: {processedCount}</span>
-          <span>•</span>
-          <span>AI Model: RMBG-1.4</span>
+        <div className="flex items-center space-x-2 sm:space-x-4 text-gray-500">
+          <span>Processed: {processedCount}</span>
+          <span className="inline">•</span>
+          <span className="hidden sm:inline">AI Model: RMBG-1.4</span>
+          <span className="sm:hidden">Model: RMBG-1.4</span>
         </div>
       </div>
     </div>

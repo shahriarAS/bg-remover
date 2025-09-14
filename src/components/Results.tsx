@@ -16,18 +16,19 @@ const Results: React.FC<ResultsProps> = ({ processedImages, formatFileSize, down
       </div>
       {processedImages.map((image, index) => (
         <div key={index} className="bg-gray-900 rounded-lg border border-gray-800 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-800 bg-gray-950/50">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4 text-sm">
-                <span className="text-green-400">{image.name}</span>
-                <span className="text-gray-500">•</span>
-                <span className="text-gray-500">{formatFileSize(image.size)}</span>
-                <span className="text-gray-500">•</span>
-                <span className="text-gray-500">{image.processingTime}ms</span>
+          <div className="px-4 sm:px-6 py-4 border-b border-gray-800 bg-gray-950/50">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 text-sm">
+                <span className="text-green-400 truncate">{image.name}</span>
+                <div className="flex items-center space-x-4 text-xs sm:text-sm">
+                  <span className="text-gray-500">{formatFileSize(image.size)}</span>
+                  <span className="text-gray-500">•</span>
+                  <span className="text-gray-500">{image.processingTime}ms</span>
+                </div>
               </div>
               <button
                 onClick={() => downloadImage(image.processed, image.name)}
-                className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-black px-4 py-2 rounded text-sm font-medium transition-colors"
+                className="flex items-center justify-center space-x-2 bg-green-600 hover:bg-green-700 text-black px-4 py-2 rounded text-sm font-medium transition-colors w-full sm:w-auto"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M4 21h16" />
