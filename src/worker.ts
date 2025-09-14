@@ -1,34 +1,166 @@
-import { pipeline, type PipelineType, type ProgressCallback } from '@huggingface/transformers';
+import {
+    env,
+    AutoModel,
+    AutoProcessor,
+    RawImage,
+    PreTrainedModel,
+    Processor
+} from "@huggingface/transformers";
 
-class MyBGRemoverPipeline {
-    static task: PipelineType = 'image-segmentation';
-    static model = 'briaai/RMBG-1.4';
-    static instance: any = null;
+const MODEL_ID = "briaai/RMBG-1.4";
 
-    static async getInstance(progress_callback: ProgressCallback | undefined) {
-        this.instance ??= pipeline(this.task, this.model, { progress_callback });
-        return this.instance;
+interface ModelState {
+    model: PreTrainedModel | null;
+    processor: Processor | null;
+}
+
+const state: ModelState = {
+    model: null,
+    processor: null
+};
+
+export async function initializeModel(): Promise<void> {
+    try {
+        env.allowLocalModels = false;
+        if (env.backends?.onnx?.wasm) {
+            env.backends.onnx.wasm.proxy = true;
+        }
+
+        state.model = await AutoModel.from_pretrained(MODEL_ID, {
+            progress_callback: (progress) => {
+                if ('progress' in progress && typeof progress.progress === 'number') {
+                    self.postMessage({
+                        status: 'progress',
+                        progress: progress.progress
+                    });
+                }
+            }
+        });
+
+        state.processor = await AutoProcessor.from_pretrained(MODEL_ID, {
+            revision: "main",
+            config: {
+                do_normalize: true,
+                do_pad: true,
+                do_rescale: true,
+                do_resize: true,
+                image_mean: [0.5, 0.5, 0.5],
+                feature_extractor_type: "ImageFeatureExtractor",
+                image_std: [0.5, 0.5, 0.5],
+                resample: 2,
+                rescale_factor: 0.00392156862745098,
+                size: { width: 1024, height: 1024 }
+            }
+        });
+
+        if (!state.model || !state.processor) {
+            throw new Error("Failed to initialize model or processor");
+        }
+    } catch (error) {
+        throw new Error(error instanceof Error ? error.message : "Failed to initialize background removal model");
     }
 }
 
-// Listen for messages from the main thread
-self.addEventListener("message", async (event) => {
-    // Retrieve the translation pipeline. When called for the first time,
-    // this will load the pipeline and save it for future use.
-    const remover = await MyBGRemoverPipeline.getInstance((x) => {
-        // We also add a progress callback to the pipeline so that we can
-        // track model loading.
-        self.postMessage(x);
-    });
+export async function processImage(image: File): Promise<{ imageData: ImageData; maskData: Uint8Array | Uint8ClampedArray }> {
+    if (!state.model || !state.processor) {
+        throw new Error("Model not initialized. Call initializeModel() first.");
+    }
 
-    // Actually perform the translation
-    const output = await remover(event.data.image);
+    const img = await RawImage.fromURL(URL.createObjectURL(image));
+    
+    // Add validation for image
+    console.log(`Processing image: ${img.width}x${img.height}, channels: ${img.channels}, data length: ${img.data.length}`);
 
-    console.log(output);
+    try {
+        // Pre-process image
+        const { pixel_values } = await state.processor(img);
 
-    // Send the output back to the main thread
-    self.postMessage({
-        status: "complete",
-        output,
-    });
+        // Predict alpha matte
+        const { output } = await state.model({ input: pixel_values });
+
+        // Resize mask back to original size
+        const resizedMask = await RawImage.fromTensor(output[0].mul(255).to("uint8")).resize(
+            img.width,
+            img.height,
+        );
+        const maskData = resizedMask.data;
+        
+        console.log(`Mask data length: ${maskData.length}, expected: ${img.width * img.height}`);
+
+        // Convert RawImage to ImageData for transfer
+        const canvas = new OffscreenCanvas(img.width, img.height);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error("Could not get 2d context");
+
+        // Validate dimensions
+        if (img.width <= 0 || img.height <= 0) {
+            throw new Error(`Invalid image dimensions: ${img.width}x${img.height}`);
+        }
+
+        // Create ImageData from the RawImage
+        // RawImage.data might be RGB format, need to convert to RGBA for ImageData
+        const expectedSize = img.width * img.height * 4; // RGBA format
+        let imageDataArray: Uint8ClampedArray;
+
+        if (img.data.length === img.width * img.height * 3) {
+            // RGB format - convert to RGBA
+            imageDataArray = new Uint8ClampedArray(expectedSize);
+            for (let i = 0; i < img.width * img.height; i++) {
+                const rgbIndex = i * 3;
+                const rgbaIndex = i * 4;
+                imageDataArray[rgbaIndex] = img.data[rgbIndex];     // R
+                imageDataArray[rgbaIndex + 1] = img.data[rgbIndex + 1]; // G
+                imageDataArray[rgbaIndex + 2] = img.data[rgbIndex + 2]; // B
+                imageDataArray[rgbaIndex + 3] = 255; // A (fully opaque)
+            }
+        } else if (img.data.length === expectedSize) {
+            // Already RGBA format
+            imageDataArray = new Uint8ClampedArray(img.data);
+        } else {
+            throw new Error(`Unexpected image data size: ${img.data.length}, expected: ${expectedSize} or ${img.width * img.height * 3}`);
+        }
+
+        // Create ImageData using canvas context
+        const imageData = ctx.createImageData(img.width, img.height);
+        imageData.data.set(imageDataArray);
+
+        return { imageData, maskData };
+    } catch (error) {
+        console.log(error)
+        throw new Error("Failed to process image");
+    }
+}
+
+self.addEventListener('message', async (event) => {
+    const { type, data } = event.data;
+
+    if (type === 'initialize') {
+        try {
+            await initializeModel();
+            self.postMessage({
+                status: 'ready',
+                message: 'Model loaded successfully'
+            });
+        } catch (error) {
+            self.postMessage({ 
+                status: 'error', 
+                message: error instanceof Error ? error.message : 'Failed to initialize model'
+            });
+        }
+    } else if (type === 'processImage') {
+        try {
+            const result = await processImage(data.image);
+            self.postMessage({
+                status: 'complete',
+                imageData: result.imageData,
+                maskData: result.maskData
+            });
+        } catch (error) {
+            self.postMessage({
+                status: 'error',
+                message: error instanceof Error ? error.message : 'Failed to process image'
+            });
+            console.log(error);
+        }
+    }
 });

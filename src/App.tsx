@@ -1,4 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
+
+// Components
 import Header from "./components/Header";
 import StatusBar from "./components/StatusBar";
 import Intro from "./components/Intro";
@@ -7,6 +9,7 @@ import ProcessingStatus from "./components/ProcessingStatus";
 import Results from "./components/Results";
 import ApiInfo from "./components/ApiInfo";
 import Footer from "./components/Footer";
+import ProgressBar from "./components/ProgressBar";
 
 export interface ProcessedImage {
   original: string;
@@ -19,56 +22,75 @@ export interface ProcessedImage {
 const App: React.FC = () => {
   const [dragActive, setDragActive] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [processedImages, setProcessedImages] = useState<ProcessedImage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [fileName, setFileName] = useState<string>("");
+  const [fileSize, setFileSize] = useState<number>(0);
   const [processingProgress, setProcessingProgress] = useState(0);
+  const [startTime, setStartTime] = useState<number | null>(null);
   const worker = useRef<Worker | null>(null);
 
-  // Simulate AI background removal with progress
-  const processImage = useCallback(
-    async (imageUrl: string, name: string, size: number) => {
-      setIsProcessing(true);
-      setProcessingProgress(0);
+  // Start the image processing workflow
+  const processImage = useCallback(async () => {
+    setIsProcessing(true);
+    setProcessingProgress(0);
+    setStartTime(Date.now());
 
-      const startTime = Date.now();
+    worker?.current?.postMessage({
+      type: "initialize",
+    });
+  }, []);
 
-      // Simulate processing with progress updates
-      const progressInterval = setInterval(() => {
-        setProcessingProgress((prev) => {
-          if (prev >= 95) {
-            clearInterval(progressInterval);
-            return 95;
-          }
-          return prev + Math.random() * 15;
-        });
-      }, 200);
+  // Convert processed image data to blob URL
+  const createImageFromProcessedData = useCallback(async (imageData: ImageData, maskData: Uint8Array | Uint8ClampedArray): Promise<string> => {
+    const canvas = document.createElement("canvas");
+    canvas.width = imageData.width;
+    canvas.height = imageData.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Could not get 2d context");
 
-      // // Simulate processing delay
-      // await new Promise((resolve) => setTimeout(resolve, 2500));
-      worker?.current?.postMessage({
-        image: imageUrl,
-      });
+    // Put the original image data on canvas
+    ctx.putImageData(imageData, 0, 0);
 
-      clearInterval(progressInterval);
-      setProcessingProgress(100);
+    // Update alpha channel with mask data
+    const pixelData = ctx.getImageData(0, 0, imageData.width, imageData.height);
+    for (let i = 0; i < maskData.length; ++i) {
+      pixelData.data[4 * i + 3] = maskData[i];
+    }
+    ctx.putImageData(pixelData, 0, 0);
 
-      const processingTime = Date.now() - startTime;
+    // Convert canvas to blob
+    const blob = await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob(
+        (blob) =>
+          blob
+            ? resolve(blob)
+            : reject(new Error("Failed to create blob")),
+        "image/png"
+      )
+    );
 
-      const processedImage: ProcessedImage = {
-        original: imageUrl,
-        processed: imageUrl,
-        name: name,
-        size: size,
-        processingTime: processingTime,
-      };
+    return URL.createObjectURL(blob);
+  }, []);
 
-      setProcessedImages((prev) => [processedImage, ...prev]);
-      setIsProcessing(false);
-      setProcessingProgress(0);
-    },
-    []
-  );
+  const processImageComplete = useCallback(async (outputImage: string) => {
+    setProcessingProgress(100);
+
+    const processingTime = Date.now() - startTime!;
+
+    const processedImage: ProcessedImage = {
+      original: selectedImage!,
+      processed: outputImage,
+      name: fileName,
+      size: fileSize,
+      processingTime: processingTime,
+    };
+
+    setProcessedImages((prev) => [processedImage, ...prev]);
+    setIsProcessing(false);
+    setProcessingProgress(0);
+  }, [selectedImage, fileName, fileSize, startTime]);
 
   const handleImageUpload = useCallback(
     (file: File) => {
@@ -76,7 +98,9 @@ const App: React.FC = () => {
         const imageUrl = URL.createObjectURL(file);
         setSelectedImage(imageUrl);
         setFileName(file.name);
-        processImage(imageUrl, file.name, file.size);
+        setFileSize(file.size);
+        setSelectedImageFile(file);
+        processImage();
       }
     },
     [processImage]
@@ -114,6 +138,15 @@ const App: React.FC = () => {
     [handleImageUpload]
   );
 
+  // Utility functions
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
+
   const downloadImage = useCallback((imageUrl: string, name: string) => {
     const link = document.createElement("a");
     link.href = imageUrl;
@@ -123,64 +156,42 @@ const App: React.FC = () => {
     document.body.removeChild(link);
   }, []);
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 B";
-    const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-  };
-
   useEffect(() => {
     worker.current ??= new Worker(new URL("./worker.js", import.meta.url), {
       type: "module",
     });
 
     // Create a callback function for messages from the worker thread.
-    const onMessageReceived = (e: MessageEvent) => {
+    const onMessageReceived = async (e: MessageEvent) => {
       switch (e.data.status) {
-        case "initiate":
-          // Model file start load: add a new progress item to the list.
-          console.log("Worker initiated: Loading Models");
-          // setReady(false);
-          // setProgressItems((prev) => [...prev, e.data]);
-          break;
-
         case "progress":
-          // Model file progress: update one of the progress items.
-          console.log(`Model loading progress: ${e.data.progress}`);
-          // setProgressItems((prev) =>
-          //   prev.map((item) => {
-          //     if (item.file === e.data.file) {
-          //       return { ...item, progress: e.data.progress };
-          //     }
-          //     return item;
-          //   })
-          // );
-          break;
-
-        case "done":
-          // Model file loaded: remove the progress item from the list.
-          console.log(`Model loaded: ${e.data.file}`);
-          // setProgressItems((prev) =>
-          //   prev.filter((item) => item.file !== e.data.file)
-          // );
+          if (typeof e.data.progress === "number") {
+            setProcessingProgress(e.data.progress);
+          }
           break;
 
         case "ready":
-          // Pipeline ready: the worker is ready to accept messages.
-          // setReady(true);
-          break;
-
-        case "update":
-          // Generation update: update the output text.
-          // setOutput((o) => o + e.data.output);
+          worker?.current?.postMessage({
+            type: "processImage",
+            data: {
+              image: selectedImageFile,
+            },
+          });
           break;
 
         case "complete":
-          // Generation complete: re-enable the "Translate" button
-          // setDisabled(false);
-          console.log("Processing complete", e.data.output);
+          try {
+            const imageUrl = await createImageFromProcessedData(e.data.imageData, e.data.maskData);
+            processImageComplete(imageUrl);
+          } catch (error) {
+            console.error("Failed to process image data:", error);
+          }
+          break;
+
+        case "error":
+          console.error("Worker error:", e.data.message);
+          setIsProcessing(false);
+          setProcessingProgress(0);
           break;
       }
     };
@@ -189,7 +200,7 @@ const App: React.FC = () => {
 
     return () =>
       worker.current?.removeEventListener("message", onMessageReceived);
-  });
+  }, [selectedImageFile, createImageFromProcessedData, processImageComplete]);
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 font-mono">
@@ -207,6 +218,7 @@ const App: React.FC = () => {
             handleDrop={handleDrop}
             handleFileSelect={handleFileSelect}
           />
+          {isProcessing && <ProgressBar progress={processingProgress} />}
           <ProcessingStatus
             isProcessing={isProcessing}
             fileName={fileName}
