@@ -9,7 +9,6 @@ import ProcessingStatus from "./components/ProcessingStatus";
 import Results from "./components/Results";
 import ApiInfo from "./components/ApiInfo";
 import Footer from "./components/Footer";
-import ProgressBar from "./components/ProgressBar";
 
 export interface ProcessedImage {
   original: string;
@@ -25,9 +24,11 @@ const App: React.FC = () => {
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [processedImages, setProcessedImages] = useState<ProcessedImage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isModelLoading, setIsModelLoading] = useState(false);
   const [fileName, setFileName] = useState<string>("");
   const [fileSize, setFileSize] = useState<number>(0);
   const [processingProgress, setProcessingProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState<string>("");
   const [startTime, setStartTime] = useState<number | null>(null);
   const worker = useRef<Worker | null>(null);
 
@@ -35,7 +36,13 @@ const App: React.FC = () => {
   const processImage = useCallback(async () => {
     setIsProcessing(true);
     setProcessingProgress(0);
+    setProgressMessage("");
     setStartTime(Date.now());
+
+    // Initialize worker if needed and set loading state
+    if (!worker.current) {
+      setIsModelLoading(true);
+    }
 
     worker?.current?.postMessage({
       type: "initialize",
@@ -75,8 +82,6 @@ const App: React.FC = () => {
   }, []);
 
   const processImageComplete = useCallback(async (outputImage: string) => {
-    setProcessingProgress(100);
-
     const processingTime = Date.now() - startTime!;
 
     const processedImage: ProcessedImage = {
@@ -89,7 +94,9 @@ const App: React.FC = () => {
 
     setProcessedImages((prev) => [processedImage, ...prev]);
     setIsProcessing(false);
+    setIsModelLoading(false);
     setProcessingProgress(0);
+    setProgressMessage("");
   }, [selectedImage, fileName, fileSize, startTime]);
 
   const handleImageUpload = useCallback(
@@ -167,16 +174,26 @@ const App: React.FC = () => {
         case "progress":
           if (typeof e.data.progress === "number") {
             setProcessingProgress(e.data.progress);
+            if (e.data.message) {
+              setProgressMessage(e.data.message);
+            }
           }
           break;
 
         case "ready":
-          worker?.current?.postMessage({
-            type: "processImage",
-            data: {
-              image: selectedImageFile,
-            },
-          });
+          setIsModelLoading(false);
+          setProcessingProgress(0);
+          setProgressMessage("Model ready! Starting image processing...");
+          
+          // Small delay to show the "ready" message before starting processing
+          setTimeout(() => {
+            worker?.current?.postMessage({
+              type: "processImage",
+              data: {
+                image: selectedImageFile,
+              },
+            });
+          }, 500);
           break;
 
         case "complete":
@@ -185,13 +202,19 @@ const App: React.FC = () => {
             processImageComplete(imageUrl);
           } catch (error) {
             console.error("Failed to process image data:", error);
+            setIsProcessing(false);
+            setIsModelLoading(false);
+            setProcessingProgress(0);
+            setProgressMessage("Error processing image");
           }
           break;
 
         case "error":
           console.error("Worker error:", e.data.message);
           setIsProcessing(false);
+          setIsModelLoading(false);
           setProcessingProgress(0);
+          setProgressMessage("Error: " + e.data.message);
           break;
       }
     };
@@ -208,6 +231,7 @@ const App: React.FC = () => {
       <StatusBar
         isProcessing={isProcessing}
         processedImages={processedImages}
+        isModelLoading={isModelLoading}
       />
       <main className="px-6 py-8">
         <div className="max-w-6xl mx-auto">
@@ -218,11 +242,11 @@ const App: React.FC = () => {
             handleDrop={handleDrop}
             handleFileSelect={handleFileSelect}
           />
-          {isProcessing && <ProgressBar progress={processingProgress} />}
           <ProcessingStatus
             isProcessing={isProcessing}
             fileName={fileName}
             processingProgress={processingProgress}
+            progressMessage={progressMessage}
           />
           <Results
             processedImages={processedImages}

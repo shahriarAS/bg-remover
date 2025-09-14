@@ -26,15 +26,32 @@ export async function initializeModel(): Promise<void> {
             env.backends.onnx.wasm.proxy = true;
         }
 
+        // Track model loading progress (0-70%)
+        self.postMessage({
+            status: 'progress',
+            progress: 0,
+            message: 'Starting model download...'
+        });
+
         state.model = await AutoModel.from_pretrained(MODEL_ID, {
             progress_callback: (progress) => {
                 if ('progress' in progress && typeof progress.progress === 'number') {
+                    // Model loading takes up 70% of initialization
+                    const modelProgress = Math.round(progress.progress * 0.7);
                     self.postMessage({
                         status: 'progress',
-                        progress: progress.progress
+                        progress: modelProgress,
+                        message: `Loading model: ${modelProgress}%`
                     });
                 }
             }
+        });
+
+        // Processor loading (70-100%)
+        self.postMessage({
+            status: 'progress',
+            progress: 70,
+            message: 'Loading processor...'
         });
 
         state.processor = await AutoProcessor.from_pretrained(MODEL_ID, {
@@ -53,6 +70,12 @@ export async function initializeModel(): Promise<void> {
             }
         });
 
+        self.postMessage({
+            status: 'progress',
+            progress: 100,
+            message: 'Model ready!'
+        });
+
         if (!state.model || !state.processor) {
             throw new Error("Failed to initialize model or processor");
         }
@@ -66,19 +89,44 @@ export async function processImage(image: File): Promise<{ imageData: ImageData;
         throw new Error("Model not initialized. Call initializeModel() first.");
     }
 
+    // Step 1: Load image (0-20%)
+    self.postMessage({
+        status: 'progress',
+        progress: 0,
+        message: 'Loading image...'
+    });
+
     const img = await RawImage.fromURL(URL.createObjectURL(image));
     
     // Add validation for image
     console.log(`Processing image: ${img.width}x${img.height}, channels: ${img.channels}, data length: ${img.data.length}`);
 
+    self.postMessage({
+        status: 'progress',
+        progress: 20,
+        message: 'Preprocessing image...'
+    });
+
     try {
-        // Pre-process image
+        // Step 2: Pre-process image (20-40%)
         const { pixel_values } = await state.processor(img);
 
-        // Predict alpha matte
+        self.postMessage({
+            status: 'progress',
+            progress: 40,
+            message: 'Running AI model...'
+        });
+
+        // Step 3: Predict alpha matte (40-70%)
         const { output } = await state.model({ input: pixel_values });
 
-        // Resize mask back to original size
+        self.postMessage({
+            status: 'progress',
+            progress: 70,
+            message: 'Resizing mask...'
+        });
+
+        // Step 4: Resize mask back to original size (70-85%)
         const resizedMask = await RawImage.fromTensor(output[0].mul(255).to("uint8")).resize(
             img.width,
             img.height,
@@ -87,7 +135,13 @@ export async function processImage(image: File): Promise<{ imageData: ImageData;
         
         console.log(`Mask data length: ${maskData.length}, expected: ${img.width * img.height}`);
 
-        // Convert RawImage to ImageData for transfer
+        self.postMessage({
+            status: 'progress',
+            progress: 85,
+            message: 'Creating final image...'
+        });
+
+        // Step 5: Convert RawImage to ImageData for transfer (85-100%)
         const canvas = new OffscreenCanvas(img.width, img.height);
         const ctx = canvas.getContext('2d');
         if (!ctx) throw new Error("Could not get 2d context");
@@ -123,6 +177,12 @@ export async function processImage(image: File): Promise<{ imageData: ImageData;
         // Create ImageData using canvas context
         const imageData = ctx.createImageData(img.width, img.height);
         imageData.data.set(imageDataArray);
+
+        self.postMessage({
+            status: 'progress',
+            progress: 100,
+            message: 'Processing complete!'
+        });
 
         return { imageData, maskData };
     } catch (error) {
