@@ -6,6 +6,7 @@ AI-powered background removal in your browser. No uploads, no servers, no tracki
 
 - **[Live Demo](https://bg.shahriarahmed.me)** - Try the app now
 - **[Case Study](https://www.shahriarahmed.me/case-study/bg-remover)** - Deep dive into the technical implementation
+- **[Blog Article](https://blog.shahriarahmed.me/post/building-an-ai-background-remover/)** - Read the technical challenges and strategies.
 
 ## Features
 
